@@ -1,0 +1,29 @@
+{
+  "name": "apk_pull",
+  "version": "1.0.0",
+  "description": "CLI helper to extract any given apk app from any connected device or running Genymotion Player",
+  "main": "apk_pull",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/creador/apk_pull.git"
+  },
+  "keywords": [
+    "apk",
+    "pull",
+    "genymotion",
+    "get",
+    "retrieve",
+    "grab",
+    "googleplay",
+    "android"
+  ],
+  "author": "Pablo Schaffner",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/creador/apk_pull/issues"
+  },
+  "homepage": "https://github.com/creador/apk_pull#readme"
+}

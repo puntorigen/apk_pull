@@ -25,5 +25,8 @@
   "bugs": {
     "url": "https://github.com/creador/apk_pull/issues"
   },
-  "homepage": "https://github.com/creador/apk_pull#readme"
+  "homepage": "https://github.com/creador/apk_pull#readme",
+  "dependencies": {
+    "terminal-menu": "^2.1.1"
+  }
 }

@@ -27,6 +27,8 @@
   },
   "homepage": "https://github.com/creador/apk_pull#readme",
   "dependencies": {
+    "colors": "^1.1.2",
+    "shelljs": "^0.7.6",
     "terminal-menu": "^2.1.1"
   }
 }

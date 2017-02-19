@@ -25,6 +25,9 @@
   "bugs": {
     "url": "https://github.com/creador/apk_pull/issues"
   },
+  "bin": {
+    "apk_pull": "./apk_pull.js"
+  },
   "homepage": "https://github.com/creador/apk_pull#readme",
   "dependencies": {
     "cheerio": "^0.22.0",

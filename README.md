@@ -14,11 +14,11 @@ npm install apk_pull -g
 It comes with a command-line (CLI), that you can use as follows:  
 
 ```javascript
-apk_pull appname
+apk_pull appname/appid
 ```
 
 ## UPDATES
 
 version 1.0.0: 
-- first version, Mac/Linux compatible.
+- first beta version, Mac/Linux compatible.
 - Add readme.md file

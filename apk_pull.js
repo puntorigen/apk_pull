@@ -1,13 +1,23 @@
+#!/usr/bin/env node
+/*
+apk_pull CLI
+Extract any APK from any connected Android device or Genymotion Player
+Usage:
+node apk_pull appname/appid [outputdirectory] 
+*/
+
 // init globals
 var	_shell 		= 	require('shelljs'),
 	_colors 	=	require('colors'),
 	_ora 		= 	require('ora'),
 	_path 		= 	require('path'),
+	fs 			=	require('fs'),
 	_cheerio 	=	require('cheerio'),
 	_cur_dir 	= 	process.cwd(),
 	args 		= 	process.argv.slice(2),
 	connected 	= 	false,
 	_packages 	= 	{},
+	_packnames	= 	{},
 	_progress;
 
 var _omit_packages = [
@@ -59,20 +69,26 @@ var getAndroidBackup = function(appid, cb) {
 };
 
 var androidBackup2apk = function(appid, appname, cb) {
-	_progress = _ora({ text: 'Extracting APK from backup', spinner:'dots5' }).start();
+	var _appname = appname.split('.').join(''); // clean char names.
+	_progress = _ora({ text: 'Extracting APK from backup: '+appname, spinner:'dots5' }).start();
 	var _cvt = _run('dd if=backup.ab bs=1 skip=24 | python -c "import zlib,sys;sys.stdout.write(zlib.decompress(sys.stdin.read()))" | tar -xvf -');
 	_progress.color = 'green', _progress.text = 'almost ready';
 	var _src = 'apps/'+appid+'/a/' +  'base.apk';
-	var _dst = appname + '.apk';
+	var _dst = _appname + '.apk';
 	_shell.mv(_src,_dst);
-	// delete apps dir
+	// clean
+	_progress.color = 'green', _progress.text = 'cleaning';
+	fs.unlink(_path.join(_cur_dir,'/') + 'backup.ab');
+	var _full_appdir = _path.join(_cur_dir,'apps/');
+	deleteFolderRecursive(_full_appdir);
+	//
 	cb(true);
 };
 
 //test if there is an android device connected
 var getPackages = function(cb) {
 	var _is = _run('bin/adb shell pm list packages');
-	_packages = {};
+	_packages = {}, _packnames = {};
 	if (_is.code==0) {
 		connected = true;
 		_progress.color = 'cyan', _progress.text = 'reading packages';
@@ -107,6 +123,7 @@ var getPackages = function(cb) {
 		for (var _id in _packages) {
 			getName(_id, function(real) {
 				_packages[this._id] = real;
+				_packnames[real] = this._id;
 				_completed++;
 				if (_completed == _total) {
 					cb(_packages);
@@ -127,33 +144,75 @@ var getPackages = function(cb) {
 	}
 };
 
+var deleteFolderRecursive = function(path) {
+  if( fs.existsSync(path) ) {
+    fs.readdirSync(path).forEach(function(file,index){
+      var curPath = path + "/" + file;
+      if(fs.lstatSync(curPath).isDirectory()) { // recurse
+        deleteFolderRecursive(curPath);
+      } else { // delete file
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(path);
+  }
+};
 
 //CLI start
 console.log('APK Pull - Get Any APK from Any Connected Android Device'.green);
 _progress = _ora({ text: 'Detecting android devices', spinner:'dots5' }).start();
 getPackages(function(data) {
 	_progress.stop();
-	var inquirer = require('inquirer');
-	var choices = [];
-	for (var _i in data) {
-		choices.push({ name:data[_i], value:_i });
-	}
-	choices.push(new inquirer.Separator());
-	choices.push({ name:':: Exit ::', value:'_exit_' });
-	choices.push(new inquirer.Separator());
-	inquirer.prompt([
-		{	type:'list',	
-			name:'appid',	
-			message:'Please select an app of your device:',
-			choices:choices
+	// TODO: process arguments here : apk_pull appname [apkdir]
+	if (args.length>=1) {
+		// search data for appname or appid
+		var _appid_required = '';
+		for (var _i in data) {
+			if (data[_i]==args[0]) {
+				_appid_required = _i; 	//appname found, assign appid
+			} else if (_i==args[0]) {
+				_appid_required = _i;	//appid found, assign appid
+			}
 		}
-	]).then(function(answer) {
-		getAndroidBackup(answer, function(ready) {
-			console.log('backup grabbed.');
+		//
+		getAndroidBackup(_appid_required, function(ready) {
+			androidBackup2apk(_appid_required,_packages[_appid_required],function(readyto) {
+				_progress.stop();
+				if (args.length==2) {
+					// if apkdir given, move apk to that directory.
+
+				}
+				console.log('apk restored.');
+			});
 		});
-		//console.log(answer);
-	});
-	//console.log('programs:',data);
+		//
+
+	} else {
+		// show menu
+		var inquirer = require('inquirer');
+		var choices = [];
+		for (var _i in data) {
+			choices.push({ name:data[_i], value:_i });
+		}
+		choices.push(new inquirer.Separator());
+		choices.push({ name:':: Exit ::', value:'_exit_' });
+		choices.push(new inquirer.Separator());
+		inquirer.prompt([
+			{	type:'list',	
+				name:'appid',	
+				message:'Please select an app of your device:',
+				choices:choices
+			}
+		]).then(function(answer) {
+			getAndroidBackup(answer.appid, function(ready) {
+				androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
+					_progress.stop();
+					console.log('apk restored.');
+				});
+			});
+		});
+		// end menu
+	}
 });
 
 

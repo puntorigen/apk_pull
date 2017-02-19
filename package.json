@@ -29,9 +29,9 @@
   "dependencies": {
     "cheerio": "^0.22.0",
     "colors": "^1.1.2",
+    "inquirer": "^3.0.1",
     "ora": "^1.1.0",
     "request": "^2.79.0",
-    "shelljs": "^0.7.6",
-    "terminal-menu": "^2.1.1"
+    "shelljs": "^0.7.6"
   }
 }

@@ -8,7 +8,7 @@ var	_shell 		= 	require('shelljs'),
 	args 		= 	process.argv.slice(2),
 	connected 	= 	false,
 	_packages 	= 	{},
-	_loading;
+	_progress;
 
 var _omit_packages = [
 	'com.monotype.*',
@@ -38,7 +38,7 @@ var getName = function(appid, cb) {
 	//console.log('requesting name for '.green+appid.yellow);
 	request({ timeout:3000, url:'https://play.google.com/store/apps/details?id='+appid.toLowerCase() }, function (error, response, body) {
 	  if (!error && response.statusCode == 200) {
-		_loading.color = 'cyan', _loading.text = 'reading package: '+this._appid;
+		_progress.color = 'cyan', _progress.text = 'reading package: '+this._appid;
 		try {
 		  	$ = _cheerio.load(body);
 		  	_resp = $('div[class=id-app-title]').text();
@@ -51,13 +51,31 @@ var getName = function(appid, cb) {
 	}.bind({ _appid:appid }))
 };
 
+var getAndroidBackup = function(appid, cb) {
+	console.log('Please unlock the device and accept the backup.'.green);
+	var _ab = _run('bin/adb backup -apk '+appid);
+	console.log('backup ready'.yellow);
+	cb(true);
+};
+
+var androidBackup2apk = function(appid, appname, cb) {
+	_progress = _ora({ text: 'Extracting APK from backup', spinner:'dots5' }).start();
+	var _cvt = _run('dd if=backup.ab bs=1 skip=24 | python -c "import zlib,sys;sys.stdout.write(zlib.decompress(sys.stdin.read()))" | tar -xvf -');
+	_progress.color = 'green', _progress.text = 'almost ready';
+	var _src = 'apps/'+appid+'/a/' +  'base.apk';
+	var _dst = appname + '.apk';
+	_shell.mv(_src,_dst);
+	// delete apps dir
+	cb(true);
+};
+
 //test if there is an android device connected
 var getPackages = function(cb) {
 	var _is = _run('bin/adb shell pm list packages');
 	_packages = {};
 	if (_is.code==0) {
 		connected = true;
-		_loading.color = 'cyan', _loading.text = 'reading packages';
+		_progress.color = 'cyan', _progress.text = 'reading packages';
 		var _lines = _is.out.split('\n');
 		// get real packages from device
 		for (var line_f in _lines) {
@@ -99,39 +117,64 @@ var getPackages = function(cb) {
 	} else {
 		if (_is.error.indexOf('no devices found')!=-1) {
 			connected = false;
-			//_loading.color = 'red', _loading.text = 'no android device detected';
+			//_progress.color = 'red', _progress.text = 'no android device detected';
 			console.log('apk_pull -> no connected android device detected !'.red);
 		} else {
-			//_loading.color = 'red', _loading.text = 'error reading bin/adb';
+			//_progress.color = 'red', _progress.text = 'error reading bin/adb';
 			console.log('apk_pull -> error reading bin/adb'.red,_is);
 		}
 		cb([]);
 	}
 };
 
+
 //CLI start
 console.log('APK Pull - Get Any APK from Any Connected Android Device'.green);
-_loading = _ora({ text: 'Detecting android devices', spinner:'dots5' }).start();
+_progress = _ora({ text: 'Detecting android devices', spinner:'dots5' }).start();
 getPackages(function(data) {
-	_loading.stop();
-	var Menu = require('terminal-menu');
-	var menu = Menu({ width: 50 }); // , x: 4, y: 2
-	menu.reset();
-	menu.write('APK PULL - SELECT APP TO RETRIEVE\n');
-	menu.write('---------------------------------\n');
-	for (var _item in data) {
-		if (_item != data[_item]) menu.add(data[_item]);
+	_progress.stop();
+	var inquirer = require('inquirer');
+	var choices = [];
+	for (var _i in data) {
+		choices.push({ name:data[_i], value:_i });
 	}
-	menu.add('EXIT');
-	menu.on('select', function (label) {
-    	menu.close();
-    	console.log('SELECTED: ' + label);
-	});
-	process.stdin.pipe(menu.createStream()).pipe(process.stdout);
-	process.stdin.setRawMode(true);
-	menu.on('close', function () {
-	    process.stdin.setRawMode(false);
-	    process.stdin.end();
+	choices.push(new inquirer.Separator());
+	choices.push({ name:':: Exit ::', value:'_exit_' });
+	choices.push(new inquirer.Separator());
+	inquirer.prompt([
+		{	type:'list',	
+			name:'appid',	
+			message:'Please select an app of your device:',
+			choices:choices
+		}
+	]).then(function(answer) {
+		getAndroidBackup(answer, function(ready) {
+			console.log('backup grabbed.');
+		});
+		//console.log(answer);
 	});
 	//console.log('programs:',data);
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

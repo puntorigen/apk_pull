@@ -26,6 +26,9 @@ var _omit_packages = [
 	'com.samsung.*',
 	'org.simalliance.*',
 	'com.android.*',
+	'com.example.*',
+	'jp.co.omronsoft.openwnn',
+	'com.amaze.filemanager',
 	'com.google.android.*',
 	'com.gd.mobicore.pa',
 	'android',
@@ -212,12 +215,16 @@ getPackages(function(data) {
 					choices:choices
 				}
 			]).then(function(answer) {
-				getAndroidBackup(answer.appid, function(ready) {
-					androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
-						_progress.stop();
-						console.log('apk restored.');
+				if (answer.appid!='_exit_') {
+					getAndroidBackup(answer.appid, function(ready) {
+						androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
+							_progress.stop();
+							console.log('apk restored.');
+						});
 					});
-				});
+				} else {
+					console.log('exit requested.'.yellow);
+				}
 			});
 			// end menu
 		}

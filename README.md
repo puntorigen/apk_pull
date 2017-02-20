@@ -19,6 +19,9 @@ apk_pull appname/appid
 
 ## UPDATES
 
+version 1.1.3:
+- now 'exit' cmd works, and added aditional packages to omit.
+
 version 1.1.2:
 - updated included ADB to newest version
 

@@ -19,6 +19,13 @@ apk_pull appname/appid
 
 ## UPDATES
 
+version 1.1.6:
+- added usage of adb pull when posible.
+- filtered packages for 3rd party apps.
+
+version 1.1.5:
+- added no apps detected recognition message.
+
 version 1.1.3:
 - now 'exit' cmd works, and added aditional packages to omit.
 

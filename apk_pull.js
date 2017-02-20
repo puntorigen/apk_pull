@@ -28,6 +28,7 @@ var _omit_packages = [
 	'com.android.*',
 	'com.example.*',
 	'jp.co.omronsoft.openwnn',
+	'com.svox.pico',
 	'com.amaze.filemanager',
 	'com.google.android.*',
 	'com.gd.mobicore.pa',
@@ -65,6 +66,23 @@ var getName = function(appid, cb) {
 	}.bind({ _appid:appid }))
 };
 
+// GET USING ADB PULL
+var getApkPath = function(appid) {
+	var _resp = _run(__dirname + _path.sep + 'bin/adb shell pm path '+appid).out.split('package:').join('');
+	return _resp;
+};
+var getApkPull = function(appdir, appname, cb) {
+	//console.log("running: "+__dirname + _path.sep + "bin/adb pull '"+appdir+"' '" + _cur_dir + _path.sep + appname + ".apk'");
+	var _copy = _run(__dirname + _path.sep + "bin/adb pull '"+appdir+"' '" + _cur_dir + _path.sep + appname + ".apk'").out;
+	//console.log('reply:'+_copy);
+	if (_copy.indexOf('adb: error')>-1) {
+		cb(false);
+	} else {
+		cb(true);
+	}
+};
+
+// GET USING ANDROID BACKUP (unrooted devices)
 var getAndroidBackup = function(appid, cb) {
 	console.log('Please unlock the device and accept the backup.'.green);
 	var _ab = _run(__dirname + _path.sep + 'bin/adb backup -apk '+appid);
@@ -88,10 +106,11 @@ var androidBackup2apk = function(appid, appname, cb) {
 	//
 	cb(true);
 };
+// END USING ANDROID BACKUP
 
 //test if there is an android device connected
 var getPackages = function(cb) {
-	var _is = _run(__dirname + _path.sep + 'bin/adb shell pm list packages');
+	var _is = _run(__dirname + _path.sep + 'bin/adb shell pm list packages -3');
 	_packages = {}, _packnames = {};
 	if (_is.code==0) {
 		connected = true;
@@ -134,6 +153,7 @@ var getPackages = function(cb) {
 				}
 			}.bind({ _id:_id }));
 		}
+		if (_total==0) cb([]);
 		//
 	} else {
 		if (_is.error.indexOf('no devices found')!=-1) {
@@ -183,16 +203,41 @@ getPackages(function(data) {
 			}
 			//
 			if (_appid_required!='') {
-				getAndroidBackup(_appid_required, function(ready) {
-					androidBackup2apk(_appid_required,_packages[_appid_required],function(readyto) {
-						_progress.stop();
-						if (args.length==2) {
-							// if apkdir given, move apk to that directory.
-							// if apkdir doesn't exist, create it
+				var _apkpull = getApkPath(_appid_required);
+				if (_apkpull!='') {
+					// Get APK using ADB Pull
+					getApkPull(_apkpull, _packages[_appid_required], function(result) {
+						if (result) {
+							_progress.stop();
+							console.log('apk restored.'.green);
+						} else {
+							// there was an error using adb pull, retrieve using backup
+							// Get APK Using Android Backup (unrooted devices)
+							getAndroidBackup(_appid_required, function(ready) {
+								androidBackup2apk(_appid_required,_packages[_appid_required],function(readyto) {
+									_progress.stop();
+									if (args.length==2) {
+										// if apkdir given, move apk to that directory.
+										// if apkdir doesn't exist, create it
+									}
+									console.log('apk restored.'.green);
+								});
+							});
 						}
-						console.log('apk restored.');
 					});
-				});
+				} else {
+					// Get APK Using Android Backup (unrooted devices)
+					getAndroidBackup(_appid_required, function(ready) {
+						androidBackup2apk(_appid_required,_packages[_appid_required],function(readyto) {
+							_progress.stop();
+							if (args.length==2) {
+								// if apkdir given, move apk to that directory.
+								// if apkdir doesn't exist, create it
+							}
+							console.log('apk restored.'.green);
+						});
+					});
+				}
 			} else {
 				console.log('appname or appid not found on device.');
 			}
@@ -200,33 +245,61 @@ getPackages(function(data) {
 
 		} else {
 			// show menu
-			var inquirer = require('inquirer');
 			var choices = [];
 			for (var _i in data) {
 				choices.push({ name:data[_i], value:_i });
 			}
-			choices.push(new inquirer.Separator());
-			choices.push({ name:':: Exit ::', value:'_exit_' });
-			choices.push(new inquirer.Separator());
-			inquirer.prompt([
-				{	type:'list',	
-					name:'appid',	
-					message:'Please select an app of your device:',
-					choices:choices
-				}
-			]).then(function(answer) {
-				if (answer.appid!='_exit_') {
-					getAndroidBackup(answer.appid, function(ready) {
-						androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
-							_progress.stop();
-							console.log('apk restored.');
-						});
-					});
-				} else {
-					console.log('exit requested.'.yellow);
-				}
-			});
-			// end menu
+			if (choices.length==0) {
+				_progress.stop();
+				console.log('No real apps detected on device.'.red);
+			} else {
+				// show menu
+				var inquirer = require('inquirer');
+				choices.push(new inquirer.Separator());
+				choices.push({ name:':: Exit ::', value:'_exit_' });
+				choices.push(new inquirer.Separator());
+				inquirer.prompt([
+					{	type:'list',	
+						name:'appid',	
+						message:'Please select an app of your device:',
+						choices:choices
+					}
+				]).then(function(answer) {
+					if (answer.appid!='_exit_') {
+						var _apkpull = getApkPath(answer.appid);
+						if (_apkpull!='') {
+							// Get APK using ADB Pull
+							getApkPull(_apkpull, _packages[answer.appid], function(result) {
+								if (result) {
+									_progress.stop();
+									console.log('apk restored.'.green);
+								} else {
+									// there was an error using adb pull, use Android Backup
+									// Get APK using Android Backup (unrooted devices)
+									getAndroidBackup(answer.appid, function(ready) {
+										androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
+											_progress.stop();
+											console.log('apk restored.'.green);
+										});
+									});
+									//
+								}
+							});
+						} else {
+							// Get APK using Android Backup (unrooted devices)
+							getAndroidBackup(answer.appid, function(ready) {
+								androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
+									_progress.stop();
+									console.log('apk restored.'.green);
+								});
+							});
+						}
+					} else {
+						console.log('exit requested.'.yellow);
+					}
+				});
+				// end menu
+			}
 		}
 	}
 });

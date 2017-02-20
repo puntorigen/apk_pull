@@ -1,6 +1,6 @@
 {
   "name": "apk_pull",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "CLI helper to extract any given apk app from any connected device or running Genymotion Player",
   "main": "apk_pull",
   "repository": {

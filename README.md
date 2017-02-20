@@ -19,7 +19,10 @@ apk_pull appname/appid
 
 ## UPDATES
 
-version 1.1.0-1:
+version 1.1.2:
+- updated included ADB to newest version
+
+version 1.1.1:
 - small bugfix
 
 version 1.0.8:

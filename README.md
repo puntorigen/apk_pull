@@ -19,7 +19,7 @@ apk_pull appname/appid
 
 ## UPDATES
 
-version 1.1.0:
+version 1.1.0-1:
 - small bugfix
 
 version 1.0.8:

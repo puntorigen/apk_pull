@@ -220,6 +220,7 @@ getPackages(function(data) {
 				});
 			});
 			// end menu
+		}
 	}
 });
 

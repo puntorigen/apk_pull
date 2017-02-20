@@ -33,7 +33,8 @@ var _omit_packages = [
 	'com.visionobjects.*',
 	'com.wssnps',
 	'com.policydm',
-	'com.wssyncmldm'
+	'com.wssyncmldm',
+	'daemon*'
 ];
 
 //shell run
@@ -63,23 +64,23 @@ var getName = function(appid, cb) {
 
 var getAndroidBackup = function(appid, cb) {
 	console.log('Please unlock the device and accept the backup.'.green);
-	var _ab = _run('bin/adb backup -apk '+appid);
+	var _ab = _run(__dirname + _path.sep + 'bin/adb backup -apk '+appid);
 	console.log('backup ready'.yellow);
 	cb(true);
 };
 
 var androidBackup2apk = function(appid, appname, cb) {
-	var _appname = appname.split('.').join(''); // clean char names.
+	var _appname = appname; //.split('.').join(''); // clean char names.
 	_progress = _ora({ text: 'Extracting APK from backup: '+appname, spinner:'dots5' }).start();
-	var _cvt = _run('dd if=backup.ab bs=1 skip=24 | python -c "import zlib,sys;sys.stdout.write(zlib.decompress(sys.stdin.read()))" | tar -xvf -');
+	var _cvt = _run('dd if='+_cur_dir + _path.sep + 'backup.ab bs=1 skip=24 | python -c "import zlib,sys;sys.stdout.write(zlib.decompress(sys.stdin.read()))" | tar -xvf -');
 	_progress.color = 'green', _progress.text = 'almost ready';
-	var _src = 'apps/'+appid+'/a/' +  'base.apk';
-	var _dst = _appname + '.apk';
+	var _src = _cur_dir + _path.sep + 'apps' + _path.sep + appid + _path.sep + 'a' + _path.sep + 'base.apk';
+	var _dst = _cur_dir + _path.sep + _appname + '.apk';
 	_shell.mv(_src,_dst);
 	// clean
 	_progress.color = 'green', _progress.text = 'cleaning';
-	fs.unlink(_path.join(_cur_dir,'/') + 'backup.ab');
-	var _full_appdir = _path.join(_cur_dir,'apps/');
+	fs.unlink(_cur_dir + _path.sep + 'backup.ab');
+	var _full_appdir = _path.join(_cur_dir,'apps'+_path.sep);
 	deleteFolderRecursive(_full_appdir);
 	//
 	cb(true);
@@ -87,7 +88,7 @@ var androidBackup2apk = function(appid, appname, cb) {
 
 //test if there is an android device connected
 var getPackages = function(cb) {
-	var _is = _run('bin/adb shell pm list packages');
+	var _is = _run(__dirname + _path.sep + 'bin/adb shell pm list packages');
 	_packages = {}, _packnames = {};
 	if (_is.code==0) {
 		connected = true;
@@ -134,11 +135,11 @@ var getPackages = function(cb) {
 	} else {
 		if (_is.error.indexOf('no devices found')!=-1) {
 			connected = false;
-			//_progress.color = 'red', _progress.text = 'no android device detected';
-			console.log('apk_pull -> no connected android device detected !'.red);
+			_progress.color = 'red', _progress.text = 'no android device detected';
+			//console.log('apk_pull -> no connected android device detected !'.red);
 		} else {
-			//_progress.color = 'red', _progress.text = 'error reading bin/adb';
-			console.log('apk_pull -> error reading bin/adb'.red,_is);
+			_progress.color = 'red', _progress.text = 'error reading bin/adb';
+			//console.log('apk_pull -> error reading bin/adb'.red,_is);
 		}
 		cb([]);
 	}
@@ -164,54 +165,61 @@ _progress = _ora({ text: 'Detecting android devices', spinner:'dots5' }).start()
 getPackages(function(data) {
 	_progress.stop();
 	// TODO: process arguments here : apk_pull appname [apkdir]
-	if (args.length>=1) {
-		// search data for appname or appid
-		var _appid_required = '';
-		for (var _i in data) {
-			if (data[_i]==args[0]) {
-				_appid_required = _i; 	//appname found, assign appid
-			} else if (_i==args[0]) {
-				_appid_required = _i;	//appid found, assign appid
-			}
-		}
-		//
-		getAndroidBackup(_appid_required, function(ready) {
-			androidBackup2apk(_appid_required,_packages[_appid_required],function(readyto) {
-				_progress.stop();
-				if (args.length==2) {
-					// if apkdir given, move apk to that directory.
-
-				}
-				console.log('apk restored.');
-			});
-		});
-		//
-
+	if (connected==false) {
+		console.log('apk_pull -> no connected android device detected !'.red);
 	} else {
-		// show menu
-		var inquirer = require('inquirer');
-		var choices = [];
-		for (var _i in data) {
-			choices.push({ name:data[_i], value:_i });
-		}
-		choices.push(new inquirer.Separator());
-		choices.push({ name:':: Exit ::', value:'_exit_' });
-		choices.push(new inquirer.Separator());
-		inquirer.prompt([
-			{	type:'list',	
-				name:'appid',	
-				message:'Please select an app of your device:',
-				choices:choices
+		if (args.length>=1) {
+			// search data for appname or appid
+			var _appid_required = '';
+			for (var _i in data) {
+				if (data[_i].toLowerCase()==args[0].toLowerCase()) {
+					_appid_required = _i; 	//appname found, assign appid
+				} else if (_i.toLowerCase()==args[0].toLowerCase()) {
+					_appid_required = _i;	//appid found, assign appid
+				}
 			}
-		]).then(function(answer) {
-			getAndroidBackup(answer.appid, function(ready) {
-				androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
-					_progress.stop();
-					console.log('apk restored.');
+			//
+			if (_appid_required!='') {
+				getAndroidBackup(_appid_required, function(ready) {
+					androidBackup2apk(_appid_required,_packages[_appid_required],function(readyto) {
+						_progress.stop();
+						if (args.length==2) {
+							// if apkdir given, move apk to that directory.
+							// if apkdir doesn't exist, create it
+						}
+						console.log('apk restored.');
+					});
+				});
+			} else {
+				console.log('appname or appid not found on device.');
+			}
+			//
+
+		} else {
+			// show menu
+			var inquirer = require('inquirer');
+			var choices = [];
+			for (var _i in data) {
+				choices.push({ name:data[_i], value:_i });
+			}
+			choices.push(new inquirer.Separator());
+			choices.push({ name:':: Exit ::', value:'_exit_' });
+			choices.push(new inquirer.Separator());
+			inquirer.prompt([
+				{	type:'list',	
+					name:'appid',	
+					message:'Please select an app of your device:',
+					choices:choices
+				}
+			]).then(function(answer) {
+				getAndroidBackup(answer.appid, function(ready) {
+					androidBackup2apk(answer.appid,_packages[answer.appid],function(readyto) {
+						_progress.stop();
+						console.log('apk restored.');
+					});
 				});
 			});
-		});
-		// end menu
+			// end menu
 	}
 });
 
